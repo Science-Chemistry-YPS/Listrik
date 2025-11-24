@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panjat Tiang Listrik - Kuis Listrik</title>
+    <!-- Memuat Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Mengatur font agar terlihat modern */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9; /* Warna latar belakang lembut */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 16px;
+        }
+
+        .quiz-card {
+            background-color: white;
+            border-radius: 1.5rem; /* Sudut membulat */
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* Styling untuk tombol opsi jawaban */
+        .option-button {
+            transition: all 0.2s;
+        }
+        .option-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* CSS Kustom untuk Tiang Listrik */
+        .pole-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            min-height: 350px; 
+        }
+
+        .electric-pole {
+            position: relative;
+            width: 16px;
+            flex-grow: 1; 
+            min-height: 250px;
+            background-color: #4b5563; 
+            border-radius: 0.5rem; 
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        .finish-line-zone {
+            position: relative;
+            width: 100%;
+            height: 40px; 
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            margin-bottom: 8px; 
+        }
+        
+        .finish-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 0;
+            border-top: 4px dashed #EF4444; 
+            transform: translateY(-50%);
+        }
+
+        .player-marker {
+            transition: bottom 0.5s ease-out;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Animasi Feedback Jawaban */
+        .correct-answer-flash {
+            animation: flash-green 0.3s ease-in-out;
+        }
+        .incorrect-answer-flash {
+            animation: flash-red 0.3s ease-in-out;
+        }
+
+        @keyframes flash-green {
+            0%, 100% { background-color: white; }
+            50% { background-color: #10B981; } 
+        }
+        @keyframes flash-red {
+            0%, 100% { background-color: white; }
+            50% { background-color: #EF4444; } 
+        }
+
+        /* MEDIA CETAK: Sembunyikan tombol saat mencetak */
+        @media print {
+            .hide-on-print {
+                display: none !important;
+            }
+            body {
+                background-color: white;
+            }
+            .quiz-card {
+                box-shadow: none;
+                border: none;
+            }
+            /* Hapus kolom pertanyaan saat mencetak, hanya pertahankan skor */
+            #player1-question-container, #player2-question-container {
+                display: none;
+            }
+            /* Rata tengah konten saat dicetak */
+            .quiz-card {
+                max-width: 800px;
+            }
+            #game-area {
+                display: block; /* Kembalikan ke block untuk cetak yang lebih mudah */
+            }
+            .flex-col.space-y-4:first-child, .flex-col.space-y-4:last-child {
+                margin-bottom: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="quiz-card p-4 md:p-8">
+    <h1 class="text-3xl md:text-4xl font-extrabold text-center text-gray-800 mb-6">
+        Panjat Tiang Listrik ⚡
+    </h1>
+    
+    <div id="game-area" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Kolom Pemain 1 -->
+        <div class="flex flex-col space-y-4">
+            <header class="bg-blue-600 text-white p-3 rounded-xl font-bold text-center text-xl">
+                Pemain 1
+            </header>
+            
+            <div class="bg-blue-100 text-blue-700 p-3 rounded-xl font-semibold text-center border-2 border-blue-400">
+                Skor Benar: <span id="score1">0</span>
+            </div>
+
+            <!-- Placeholder Pertanyaan 1 -->
+            <div id="player1-question-container" class="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm flex-grow hide-on-print" data-player="1">
+                <!-- Konten pertanyaan akan di-inject di sini oleh JS -->
+            </div>
+        </div>
+
+        <!-- Kolom Tengah (Tiang Listrik & Status) -->
+        <div class="flex flex-col items-center justify-between space-y-6">
+            
+            <!-- Dua Tiang Listrik Bersebelahan -->
+            <div class="flex justify-around w-full h-full space-x-12 hide-on-print">
+                
+                <!-- Tiang Listrik 1 (Pemain 1) -->
+                <div class="pole-area">
+                    <div class="finish-line-zone w-12">
+                        <div class="finish-line"></div>
+                        <span class="text-3xl relative z-10">💡</span>
+                    </div>
+                    <div id="pole-1" class="electric-pole">
+                        <div id="player1-pos" class="player-marker w-8 h-8 rounded-full bg-blue-500 text-white font-bold flex items-center justify-center text-sm shadow-lg border-2 border-white" style="bottom: 0%;">1</div>
+                    </div>
+                    <p class="text-lg font-semibold mt-2 text-blue-600">Tiang P1</p>
+                </div>
+                
+                <!-- Tiang Listrik 2 (Pemain 2) -->
+                <div class="pole-area">
+                    <div class="finish-line-zone w-12">
+                        <div class="finish-line"></div>
+                        <span class="text-3xl relative z-10">💡</span>
+                    </div>
+                    <div id="pole-2" class="electric-pole">
+                        <div id="player2-pos" class="player-marker w-8 h-8 rounded-full bg-orange-500 text-white font-bold flex items-center justify-center text-sm shadow-lg border-2 border-white" style="bottom: 0%;">2</div>
+                    </div>
+                    <p class="text-lg font-semibold mt-2 text-orange-600">Tiang P2</p>
+                </div>
+            </div>
+            
+            <!-- Area Skor dan Keterangan -->
+            <div class="w-full max-w-sm bg-white p-4 rounded-xl shadow-xl border-t-4 border-gray-200">
+                <p class="text-center font-bold text-gray-700 mb-2">SKOR AKHIR</p>
+                <div class="flex justify-around text-4xl font-extrabold mb-2">
+                    <span class="text-blue-600" id="current-score-1">0</span>
+                    <span class="text-orange-600" id="current-score-2">0</span>
+                </div>
+                <p class="text-center text-sm text-gray-500 font-semibold mt-2" id="game-status">
+                    Lomba dimulai! Jawab soalmu secepatnya!
+                </p>
+
+                <!-- Tombol Kontrol Permainan -->
+                <div class="mt-4 flex flex-wrap justify-center gap-2 hide-on-print">
+                    <button id="resume-button" onclick="window.loadGame()" class="px-4 py-2 bg-green-500 text-white font-bold rounded-lg shadow-md hover:bg-green-600 disabled:opacity-50 transition duration-150 text-sm">
+                        Lanjut Main
+                    </button>
+                    <button id="reset-button" onclick="window.resetGame()" class="px-4 py-2 bg-red-500 text-white font-bold rounded-lg shadow-md hover:bg-red-600 transition duration-150 text-sm">
+                        Atur Ulang Game
+                    </button>
+                    <button id="download-button" onclick="window.downloadResults()" class="px-4 py-2 bg-purple-600 text-white font-bold rounded-lg shadow-md hover:bg-purple-700 transition duration-150 text-sm">
+                        Unduh Hasil (PDF)
+                    </button>
+                </div>
+                <p id="save-status" class="text-center text-xs mt-2 text-gray-400 hide-on-print"></p>
+            </div>
+        </div>
+        
+        <!-- Kolom Pemain 2 -->
+        <div class="flex flex-col space-y-4">
+            <header class="bg-orange-600 text-white p-3 rounded-xl font-bold text-center text-xl">
+                Pemain 2
+            </header>
+            
+            <div class="bg-orange-100 text-orange-700 p-3 rounded-xl font-semibold text-center border-2 border-orange-400">
+                Skor Benar: <span id="score2">0</span>
+            </div>
+
+            <!-- Placeholder Pertanyaan 2 -->
+            <div id="player2-question-container" class="bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm flex-grow hide-on-print" data-player="2">
+                <!-- Konten pertanyaan akan di-inject di sini oleh JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Data Pertanyaan Kuis ---
+    const quizData = [
+        {
+            question: "Dalam rangkaian seri, besaran listrik apa yang nilainya SAMA di setiap komponen?",
+            options: ["Tegangan (Volt)", "Hambatan (Ohm)", "Arus (Ampere)", "Daya (Watt)"],
+            correctIndex: 2 
+        },
+        {
+            question: "Apa nama peristiwa di mana benda netral menjadi bermuatan listrik hanya karena didekatkan dengan benda bermuatan?",
+            options: ["Konduksi", "Induksi", "Radiasi", "Resonansi"],
+            correctIndex: 1 
+        },
+        {
+            question: "Berapa hambatan total jika dua resistor 10 Ohm dihubungkan secara paralel?",
+            options: ["20 Ohm", "10 Ohm", "5 Ohm", "15 Ohm"],
+            correctIndex: 2 
+        },
+        {
+            question: "Satuan standar internasional (SI) dari energi listrik adalah...",
+            options: ["Volt", "Ampere", "Joule", "Watt"],
+            correctIndex: 2 
+        },
+        {
+            question: "Alat yang digunakan untuk mengukur tegangan listrik adalah...",
+            options: ["Amperemeter", "Voltmeter", "Ohmmeter", "Termometer"],
+            correctIndex: 1 
+        },
+        {
+            question: "Hukum yang menjelaskan hubungan antara tegangan, arus, dan hambatan adalah...",
+            options: ["Hukum Newton", "Hukum Pascal", "Hukum Ohm", "Hukum Archimedes"],
+            correctIndex: 2 
+        },
+        {
+            question: "Jika lampu dinyalakan secara paralel, jika salah satu lampu mati, lampu lainnya akan...",
+            options: ["Ikut mati", "Tetap menyala", "Menyala lebih terang", "Redup"],
+            correctIndex: 1 
+        },
+        {
+            question: "Apa yang terjadi pada hambatan total jika lebih banyak resistor ditambahkan secara seri?",
+            options: ["Menurun", "Meningkat", "Tetap sama", "Tidak bisa ditentukan"],
+            correctIndex: 1 
+        },
+        {
+            question: "Pada rangkaian listrik, simbol untuk sumber tegangan DC (baterai) adalah...",
+            options: ["Lingkaran dengan X", "Garis zigzag", "Dua garis paralel tidak sama panjang", "Kotak kosong"],
+            correctIndex: 2 
+        },
+        {
+            question: "Berapa hambatan kawat tembaga jika arusnya 5A dan tegangannya 10V?",
+            options: ["50 Ohm", "0.5 Ohm", "2 Ohm", "5 Ohm"],
+            correctIndex: 2 
+        }
+    ];
+
+    // Kunci untuk localStorage
+    const STORAGE_KEY = 'poleClimbingQuizSave';
+
+    // --- State Game ---
+    const initialState = {
+        player1Progress: 0, 
+        player2Progress: 0,
+        player1MainIndex: 0, 
+        player2MainIndex: 0, 
+        player1Retries: [], 
+        player2Retries: [], 
+        player1Score: 0, 
+        player2Score: 0
+    };
+
+    let gameState = { ...initialState };
+    
+    const stepSize = 100 / (quizData.length); 
+    const totalQuestions = quizData.length;
+
+    // --- Referensi Elemen Global Statis ---
+    const gameAreaElement = document.getElementById('game-area');
+    const score1Element = document.getElementById('current-score-1');
+    const score2Element = document.getElementById('current-score-2');
+    const player1PosElement = document.getElementById('player1-pos');
+    const player2PosElement = document.getElementById('player2-pos');
+    const gameStatusElement = document.getElementById('game-status');
+    const resumeButton = document.getElementById('resume-button');
+    const saveStatusElement = document.getElementById('save-status');
+    const resetButton = document.getElementById('reset-button');
+    
+    // State untuk konfirmasi Reset
+    let isResetConfirmationPending = false;
+    let resetTimer = null;
+
+
+    // --- Fungsi Penyimpanan & Muat ---
+
+    function saveGame() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
+            saveStatusElement.textContent = `Permainan tersimpan pada ${new Date().toLocaleTimeString()}.`;
+            resumeButton.disabled = false;
+        } catch (e) {
+            console.error("Gagal menyimpan game:", e);
+            saveStatusElement.textContent = `Gagal menyimpan permainan.`;
+        }
+    }
+
+    /**
+     * Memuat state permainan dari localStorage. Didefinisikan secara global.
+     */
+    window.loadGame = function() {
+        try {
+            const savedState = localStorage.getItem(STORAGE_KEY);
+            if (savedState) {
+                gameState = JSON.parse(savedState);
+                applyGameState();
+                gameStatusElement.textContent = "Permainan dilanjutkan dari posisi terakhir.";
+                saveStatusElement.textContent = `Status berhasil dimuat.`;
+                // Pastikan status reset kembali normal setelah memuat game
+                if (isResetConfirmationPending) {
+                    window.resetGame(true); 
+                }
+                return true;
+            }
+        } catch (e) {
+            console.error("Gagal memuat game:", e);
+            saveStatusElement.textContent = `Gagal memuat permainan. Mungkin data rusak.`;
+        }
+        return false;
+    }
+
+    function applyGameState() {
+        player1PosElement.style.bottom = `${gameState.player1Progress}%`;
+        player2PosElement.style.bottom = `${gameState.player2Progress}%`;
+
+        score1Element.textContent = gameState.player1Score;
+        score2Element.textContent = gameState.player2Score;
+        document.getElementById('score1').textContent = gameState.player1Score;
+        document.getElementById('score2').textContent = gameState.player2Score;
+
+        renderQuestion('1');
+        renderQuestion('2');
+
+        if (gameState.player1Progress >= 100 && gameState.player1Retries.length === 0 && 
+            gameState.player2Progress >= 100 && gameState.player2Retries.length === 0) {
+            
+            resumeButton.disabled = true;
+            checkFinalWinner(true);
+        } else {
+            gameAreaElement.querySelectorAll('.option-button').forEach(b => b.disabled = false);
+            if (localStorage.getItem(STORAGE_KEY)) {
+                resumeButton.disabled = false;
+            } else {
+                resumeButton.disabled = true;
+            }
+        }
+    }
+
+    /**
+     * Mengatur ulang permainan. Didefinisikan secara global.
+     */
+    window.resetGame = function(forceReset = false) {
+        if (isResetConfirmationPending || forceReset) {
+            // PERFOM RESET
+            if (resetTimer) clearTimeout(resetTimer);
+            isResetConfirmationPending = false;
+            
+            gameState = { ...initialState };
+            localStorage.removeItem(STORAGE_KEY);
+            applyGameState();
+
+            // Kembalikan teks dan warna tombol
+            resetButton.textContent = "Atur Ulang Game"; 
+            resetButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+            resetButton.classList.add('bg-red-500', 'hover:bg-red-600');
+            
+            gameStatusElement.textContent = "Game Baru Dimulai! Jawab soalmu secepatnya!";
+            saveStatusElement.textContent = "Data permainan lama telah dihapus.";
+            resumeButton.disabled = true;
+
+        } else {
+            // START CONFIRMATION MODE
+            isResetConfirmationPending = true;
+            
+            resetButton.textContent = "Yakin Reset? (5s)";
+            resetButton.classList.remove('bg-red-500', 'hover:bg-red-600');
+            resetButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+
+            // Atur timer untuk kembali ke mode normal jika tidak ada klik
+            resetTimer = setTimeout(() => {
+                if (isResetConfirmationPending) {
+                    isResetConfirmationPending = false;
+                    resetButton.textContent = "Atur Ulang Game";
+                    resetButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                    resetButton.classList.add('bg-red-500', 'hover:bg-red-600');
+                }
+            }, 5000); 
+        }
+    }
+
+    /**
+     * Memicu dialog cetak browser untuk mengunduh hasil sebagai PDF. Didefinisikan secara global.
+     */
+    window.downloadResults = function() {
+        console.log("Attempting to trigger window.print() for PDF download...");
+        // Memanggil window.print() akan membuka dialog cetak. 
+        // Pengguna harus memilih "Simpan sebagai PDF" di tujuan printer.
+        window.print();
+    }
+
+
+    // --- Fungsi Logika Game ---
+
+    function getCurrentQuestionIndex(playerId) {
+        const retries = playerId === '1' ? gameState.player1Retries : gameState.player2Retries;
+        const mainIndex = playerId === '1' ? gameState.player1MainIndex : gameState.player2MainIndex;
+
+        if (retries.length > 0) {
+            return retries[0]; 
+        }
+
+        if (mainIndex < totalQuestions) {
+            return mainIndex;
+        }
+
+        return -1; 
+    }
+
+    function renderQuestion(playerId) {
+        const container = document.getElementById(`player${playerId}-question-container`);
+        const index = getCurrentQuestionIndex(playerId);
+        const retries = playerId === '1' ? gameState.player1Retries : gameState.player2Retries;
+        
+        if (index === -1) {
+            container.innerHTML = `
+                <div class="text-center p-6 text-xl font-bold text-gray-700">
+                    Semua soal telah dijawab TEPAT! Anda telah menguasai materi.
+                </div>
+            `;
+            checkFinalWinner();
+            return;
+        }
+
+        const data = quizData[index];
+        const isRetry = retries.includes(index);
+        
+        let optionsHTML = data.options.map((option, i) => `
+            <button class="option-button w-full bg-white text-gray-800 p-3 rounded-lg border border-gray-300 hover:bg-gray-100 text-left shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-answer-index="${i}" data-question-index="${index}" data-is-retry="${isRetry}">
+                ${String.fromCharCode(65 + i)}. ${option}
+            </button>
+        `).join('');
+
+        container.innerHTML = `
+            <p class="font-medium mb-1 text-gray-700">
+                ${isRetry ? '<span class="text-red-600 font-bold">ULANGI:</span> ' : ''}
+                Soal ${index + 1}/${totalQuestions}
+            </p>
+            <p class="font-bold mb-4 text-gray-800 text-lg">
+                ${data.question}
+            </p>
+            <div class="space-y-3">
+                ${optionsHTML}
+            </div>
+        `;
+    }
+
+    function processAnswer(playerId, isCorrect, currentQuestionIndex, wasRetry) {
+        const playerMarker = playerId === '1' ? player1PosElement : player2PosElement;
+        const scoreElement = playerId === '1' ? score1Element : score2Element;
+        const stateKey = playerId === '1' ? 'player1' : 'player2';
+
+        let progress = gameState[`${stateKey}Progress`];
+        let score = gameState[`${stateKey}Score`];
+        let mainIndex = gameState[`${stateKey}MainIndex`];
+        let retries = gameState[`${stateKey}Retries`];
+
+        if (isCorrect) {
+            score += 1;
+
+            if (wasRetry) {
+                const retryIndex = retries.indexOf(currentQuestionIndex);
+                if (retryIndex > -1) {
+                    retries.splice(retryIndex, 1);
+                    if (progress < 100) {
+                        progress = Math.min(progress + stepSize, 100);
+                    }
+                }
+            } else if (mainIndex < totalQuestions) {
+                progress = Math.min(progress + stepSize, 100);
+                mainIndex++;
+            }
+            
+            playerMarker.style.bottom = `${progress}%`;
+            scoreElement.textContent = score;
+            document.getElementById(`score${playerId}`).textContent = score;
+
+        } else {
+            if (!wasRetry && mainIndex < totalQuestions && !retries.includes(currentQuestionIndex)) {
+                retries.push(currentQuestionIndex);
+            }
+            
+            if (!wasRetry && mainIndex < totalQuestions) {
+                mainIndex++; 
+            }
+        }
+        
+        gameState[`${stateKey}Progress`] = progress;
+        gameState[`${stateKey}Score`] = score;
+        gameState[`${stateKey}MainIndex`] = mainIndex;
+        gameState[`${stateKey}Retries`] = retries;
+
+        saveGame();
+        checkWinner(playerId);
+        
+        setTimeout(() => {
+            renderQuestion(playerId);
+            if (gameAreaElement) {
+                gameAreaElement.classList.remove('correct-answer-flash', 'incorrect-answer-flash');
+            }
+        }, 500); 
+    }
+    
+    function checkWinner(playerId) {
+        const stateKey = playerId === '1' ? 'player1' : 'player2';
+        const progress = gameState[`${stateKey}Progress`];
+        const retries = gameState[`${stateKey}Retries`].length;
+
+        if (progress >= 100 && retries === 0) {
+            gameStatusElement.textContent = `Pemain ${playerId} MENANG dan berhasil memanjat!`;
+            resumeButton.disabled = true;
+        }
+    }
+
+    function checkFinalWinner(isLoaded = false) {
+        const p1Done = gameState.player1MainIndex >= totalQuestions && gameState.player1Retries.length === 0;
+        const p2Done = gameState.player2MainIndex >= totalQuestions && gameState.player2Retries.length === 0;
+
+        if (p1Done && p2Done) {
+            let statusText = "Permainan Selesai Total. ";
+            if (gameState.player1Score > gameState.player2Score) {
+                statusText += `Pemain 1 menang dengan skor ${gameState.player1Score} berbanding ${gameState.player2Score}!`;
+            } else if (gameState.player2Score > gameState.player1Score) {
+                statusText += `Pemain 2 menang dengan skor ${gameState.player2Score} berbanding ${gameState.player1Score}!`;
+            } else {
+                statusText += "Hasil seri!";
+            }
+            gameStatusElement.textContent = statusText;
+            resumeButton.disabled = true;
+
+            if (!isLoaded) {
+                localStorage.removeItem(STORAGE_KEY);
+            }
+        } else if (!isLoaded) {
+            checkWinner('1');
+            checkWinner('2');
+        }
+    }
+
+    function handleAnswer(event) {
+        const btn = event.target.closest('.option-button');
+        if (!btn || btn.disabled) return;
+
+        const questionArea = btn.closest('[data-player]');
+        if (!questionArea) return;
+        
+        const playerId = questionArea.getAttribute('data-player');
+        
+        const progress = gameState[`player${playerId}Progress`];
+        const retries = gameState[`player${playerId}Retries`].length;
+        if (progress >= 100 && retries === 0) {
+            gameStatusElement.textContent = `Pemain ${playerId} sudah selesai! Tidak bisa menjawab lagi.`;
+            return;
+        }
+
+        const questionIndex = parseInt(btn.getAttribute('data-question-index'));
+        const wasRetry = btn.getAttribute('data-is-retry') === 'true';
+
+        const currentQuestion = quizData[questionIndex];
+
+        if (!currentQuestion) return; 
+
+        const selectedIndex = parseInt(btn.getAttribute('data-answer-index'));
+        const isCorrect = selectedIndex === currentQuestion.correctIndex;
+
+        questionArea.querySelectorAll('.option-button').forEach(b => b.disabled = true);
+        
+        if (isCorrect) {
+            btn.classList.add('bg-green-500', 'text-white');
+            if (gameAreaElement) {
+                gameAreaElement.classList.add('correct-answer-flash');
+            }
+        } else {
+            btn.classList.add('bg-red-500', 'text-white');
+            const correctBtn = questionArea.querySelector(`[data-answer-index="${currentQuestion.correctIndex}"]`);
+            if (correctBtn) {
+                correctBtn.classList.add('bg-green-500', 'text-white', 'border-4', 'border-green-700');
+            }
+            if (gameAreaElement) {
+                gameAreaElement.classList.add('incorrect-answer-flash');
+            }
+        }
+        
+        processAnswer(playerId, isCorrect, questionIndex, wasRetry);
+    }
+    
+    // --- Event Delegation ---
+    if (gameAreaElement) {
+        gameAreaElement.addEventListener('click', handleAnswer);
+    } else {
+        console.error("Kesalahan fatal: Tidak dapat melampirkan event listener karena #game-area tidak ditemukan.");
+    }
+    
+
+    // --- Inisialisasi Game ---
+    function initGame() {
+        const hasSavedGame = !!localStorage.getItem(STORAGE_KEY);
+        
+        if (hasSavedGame) {
+            resumeButton.disabled = false;
+            saveStatusElement.textContent = "Ditemukan data tersimpan. Tekan 'Lanjut Main' atau 'Atur Ulang Game'.";
+            applyGameState(); 
+        } else {
+            gameState = { ...initialState };
+            applyGameState();
+            resumeButton.disabled = true;
+            gameStatusElement.textContent = "Lomba dimulai! Jawab soalmu secepatnya!";
+            saveStatusElement.textContent = "Tidak ada permainan tersimpan.";
+        }
+    }
+
+    // Panggil inisialisasi setelah DOM dimuat
+    window.onload = initGame;
+</script>
+
+</body>
+</html>
